@@ -1,14 +1,60 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
-const habits = ref([
+const storageKey = 'daymark-habits'
+const starterHabits = [
   { id: 1, name: 'Drink a glass of water', completed: true },
   { id: 2, name: 'Read for 20 minutes', completed: true },
   { id: 3, name: 'Go for a walk', completed: false },
   { id: 4, name: 'Write in my journal', completed: false },
-])
+]
+const storageError = ref('')
+
+function isHabit(value) {
+  return (
+    value &&
+    Number.isInteger(value.id) &&
+    typeof value.name === 'string' &&
+    typeof value.completed === 'boolean'
+  )
+}
+
+function loadHabits() {
+  try {
+    const savedHabits = window.localStorage.getItem(storageKey)
+    if (savedHabits === null) return starterHabits
+
+    const parsedHabits = JSON.parse(savedHabits)
+    if (Array.isArray(parsedHabits) && parsedHabits.every(isHabit)) {
+      return parsedHabits
+    }
+
+    storageError.value = 'Saved habits could not be read. Your starter habits are shown.'
+  } catch (error) {
+    storageError.value = 'Saved habits could not be loaded. Your starter habits are shown.'
+    console.error('Unable to load saved habits.', error)
+  }
+
+  return starterHabits
+}
+
+const habits = ref(loadHabits())
 const newHabit = ref('')
-let nextId = habits.value.length + 1
+let nextId = Math.max(0, ...habits.value.map((habit) => habit.id)) + 1
+
+watch(
+  habits,
+  (updatedHabits) => {
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(updatedHabits))
+      storageError.value = ''
+    } catch (error) {
+      storageError.value = 'Changes could not be saved. Check your browser storage settings.'
+      console.error('Unable to save habits.', error)
+    }
+  },
+  { deep: true },
+)
 
 const completedCount = computed(
   () => habits.value.filter((habit) => habit.completed).length,
@@ -161,6 +207,9 @@ function deleteHabit(id) {
             Add habit
           </button>
         </form>
+        <p v-if="storageError" class="storage-notice" role="alert">
+          {{ storageError }}
+        </p>
       </section>
 
       <footer class="footer-note">
@@ -393,6 +442,15 @@ h2 {
   background: #fbfcfa;
 }
 
+.habit-row.completed {
+  background: #f2f7f1;
+  box-shadow: inset 3px 0 #64866a;
+}
+
+.habit-row.completed:hover {
+  background: #edf4ec;
+}
+
 .habit-label {
   position: relative;
   flex: 1;
@@ -451,9 +509,9 @@ h2 {
 }
 
 .completed .habit-name {
-  color: #a1a8a1;
+  color: #708071;
   text-decoration: line-through;
-  text-decoration-color: #c3cbc3;
+  text-decoration-color: #9baa9a;
 }
 
 .delete-button {
@@ -589,6 +647,13 @@ h2 {
   height: 17px;
 }
 
+.storage-notice {
+  margin: 10px 2px 0;
+  color: #a14d45;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .footer-note {
   justify-content: center;
   gap: 7px;
@@ -615,7 +680,7 @@ h2 {
 
 @media (max-width: 540px) {
   .page-shell {
-    padding: 0 18px;
+    padding: 0 16px;
   }
 
   .tracker {
@@ -623,7 +688,7 @@ h2 {
   }
 
   .intro {
-    margin-top: 48px;
+    margin: 42px 0 24px;
   }
 
   .progress-card {
@@ -631,11 +696,62 @@ h2 {
   }
 
   .habit-row {
-    min-height: 58px;
+    min-height: 60px;
+    padding: 9px 9px 9px 13px;
+    align-items: flex-start;
+  }
+
+  .habit-label {
+    align-items: flex-start;
+  }
+
+  .custom-checkbox {
+    margin-top: 1px;
+  }
+
+  .habit-name {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    line-height: 1.45;
   }
 
   .delete-button {
     opacity: 1;
+  }
+}
+
+@media (max-width: 380px) {
+  .page-shell {
+    padding: 0 14px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .date-label {
+    max-width: 55%;
+    text-align: right;
+  }
+
+  h1 {
+    font-size: clamp(28px, 9vw, 34px);
+    letter-spacing: -1.3px;
+  }
+
+  .progress-card {
+    padding: 18px 15px 16px;
+  }
+
+  .add-form {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .add-form button {
+    width: 100%;
   }
 }
 
